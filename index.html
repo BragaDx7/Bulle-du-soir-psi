@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bulle du Soir</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #FAF9F5; color: #141413; }
+  a { color: #D97757; }
+  textarea, input[type="text"] { font-family: inherit; }
+  textarea:focus, input:focus, button:focus-visible { outline: 2px solid #D97757; outline-offset: 2px; }
+  ::placeholder { color: #A8A39A; }
+
+  .wrap { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px 20px 48px; }
+  .col { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 20px; }
+  .header { text-align: center; display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; }
+  .badge { display: inline-flex; align-self: center; align-items: center; gap: 6px; background: #EFE9DD; color: #6B6355; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; }
+  h1 { margin: 4px 0 0; font-family: Georgia, serif; font-style: italic; font-size: 34px; font-weight: 400; color: #8A9A7E; }
+  .sub { margin: 0; font-size: 14px; color: #6B6355; line-height: 1.5; }
+  .card { background: #ffffff; border: 1px solid #E9E4D8; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+  .section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #6B6355; display: flex; align-items: center; gap: 6px; }
+  .section-title .icon { font-size: 16px; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 14px; color: #141413; }
+  .hint { font-size: 12px; color: #A8A39A; }
+  textarea, input[type="text"] { width: 100%; resize: none; padding: 12px; border: 1px solid #E9E4D8; border-radius: 12px; font-size: 14px; background: #FAF9F5; line-height: 1.4; }
+
+  .energy-range { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #D9534F 0%, #E0A63B 30%, #6FA85C 60%, #4A6FA5 100%); }
+  .energy-range::-webkit-slider-runnable-track { -webkit-appearance: none; height: 8px; background: transparent; }
+  .energy-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -6px; border-radius: 50%; background: #ffffff; border: 2px solid #141413; box-shadow: 0 1px 3px rgba(0,0,0,0.3); cursor: pointer; }
+  .energy-range::-moz-range-track { height: 8px; border-radius: 999px; background: linear-gradient(90deg, #D9534F 0%, #E0A63B 30%, #6FA85C 60%, #4A6FA5 100%); }
+  .energy-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #ffffff; border: 2px solid #141413; box-shadow: 0 1px 3px rgba(0,0,0,0.3); cursor: pointer; }
+  .anchors { display: flex; justify-content: space-between; font-size: 10.5px; color: #A8A39A; }
+
+  .mood-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .mood-card { padding: 12px 8px; border-radius: 12px; font-size: 13px; text-align: center; cursor: pointer; line-height: 1.3; border: 1px solid #E9E4D8; background: #FAF9F5; color: #4A463D; }
+  .mood-card .em { display: block; font-size: 20px; margin-bottom: 4px; }
+  .mood-card.selected { border: 1.5px solid #8A9A7E; background: #8A9A7E1A; color: #141413; font-weight: 600; }
+
+  .submit-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #8A9A7E; color: #ffffff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .confirm { background: #ECF1E9; border: 1px solid #C9D8C1; border-radius: 16px; padding: 18px; text-align: center; font-size: 14px; color: #3F5C33; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="col">
+
+    <div class="header">
+      <span class="badge">Rituel de déconnexion</span>
+      <h1>Bulle du Soir</h1>
+      <p class="sub">Déposer la journée en 2 minutes pour la clôturer dans le calme et la bienveillance.</p>
+    </div>
+
+    <div class="card">
+      <div class="row-between">
+        <span class="section-title"><span class="icon">🌤️</span>Météo intérieure</span>
+        <span id="today" class="hint"></span>
+      </div>
+
+      <div class="field">
+        <div class="row-between">
+          <span>Niveau d'énergie</span>
+          <span style="color:#8A9A7E"><b id="energyLabel">Moyen</b> · <span id="energyVal">6</span>/10</span>
+        </div>
+        <input type="range" class="energy-range" id="energy" min="1" max="10" step="1" value="6">
+        <div class="anchors">
+          <span>Épuisé(e)</span><span>Fatigué(e)</span><span>Moyen</span><span>Bon</span><span>Super</span><span>Rayonnant(e)</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Humeur dominante</label>
+        <div class="mood-grid" id="moodGrid"></div>
+        <input type="text" id="moodOther" class="hidden" placeholder="Précisez votre humeur...">
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="section-title"><span class="icon">📔</span>Bilan de la journée</span>
+      <div class="field">
+        <label>Un moment de joie aujourd'hui</label>
+        <textarea id="joie" rows="2" placeholder="Un sourire, une pause savourée..."></textarea>
+      </div>
+      <div class="field">
+        <label>Ma petite victoire du jour</label>
+        <textarea id="victoire" rows="2" placeholder="Même toute petite..."></textarea>
+      </div>
+      <div class="field">
+        <label>Ce qui a pesé aujourd'hui</label>
+        <textarea id="pese" rows="2" placeholder="Une difficulté, ce qui a drainé l'énergie..."></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="section-title"><span class="icon">💌</span>Pour l'autre</span>
+      <div class="field">
+        <label>Un mot pour demain matin</label>
+        <span class="hint">Envoyé tel quel, tôt demain matin</span>
+        <textarea id="notedemain" rows="2" placeholder="Un conseil, une demande, un rappel..."></textarea>
+      </div>
+      <div class="field">
+        <label>Une gratitude envers l'autre</label>
+        <textarea id="gratitude" rows="2" placeholder="Merci pour..."></textarea>
+      </div>
+      <div class="field">
+        <label>À cœur ouvert</label>
+        <span class="hint">Reformulé avec douceur par l'IA avant l'envoi</span>
+        <textarea id="coeur" rows="3" placeholder="Ce que vous n'osez pas toujours dire directement..."></textarea>
+      </div>
+    </div>
+
+    <div id="confirm" class="confirm hidden">Journée déposée. Elle sera partagée dès que l'autre aura validé la sienne.</div>
+    <button id="submitBtn" class="submit-btn" type="button">Déposer et clôturer ma journée</button>
+
+  </div>
+</div>
+
+<script>
+  var tg = window.Telegram ? window.Telegram.WebApp : null;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  document.getElementById('today').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  var moods = [
+    { id: 'serein', label: 'Serein(e)', icon: '😌' },
+    { id: 'joyeux', label: 'Joyeux/se', icon: '😄' },
+    { id: 'heureux', label: 'Heureux(se)', icon: '🙂' },
+    { id: 'fier', label: 'Fier(e)', icon: '😊' },
+    { id: 'triste', label: 'Triste', icon: '😢' },
+    { id: 'colere', label: 'En colère', icon: '😠' },
+    { id: 'perdu', label: 'Perdu(e)', icon: '😕' },
+    { id: 'pression', label: 'Sous pression', icon: '😣' },
+    { id: 'peur', label: 'Peur', icon: '😨' },
+    { id: 'douceur', label: 'Besoin de douceur', icon: '🥺' },
+    { id: 'autre', label: 'Autre', icon: '✏️' }
+  ];
+  var selectedMood = null;
+  var grid = document.getElementById('moodGrid');
+  moods.forEach(function (m) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-card';
+    btn.dataset.id = m.id;
+    btn.innerHTML = '<span class="em">' + m.icon + '</span>' + m.label;
+    btn.addEventListener('click', function () {
+      selectedMood = m.id;
+      Array.prototype.forEach.call(grid.children, function (c) { c.classList.remove('selected'); });
+      btn.classList.add('selected');
+      document.getElementById('moodOther').classList.toggle('hidden', m.id !== 'autre');
+    });
+    grid.appendChild(btn);
+  });
+
+  function energyLabel(v) {
+    if (v <= 2) return 'Épuisé(e)';
+    if (v <= 4) return 'Fatigué(e)';
+    if (v <= 6) return 'Moyen';
+    if (v <= 8) return 'Bon';
+    if (v === 9) return 'Super';
+    return 'Rayonnant(e)';
+  }
+  var energyInput = document.getElementById('energy');
+  energyInput.addEventListener('input', function () {
+    document.getElementById('energyVal').textContent = energyInput.value;
+    document.getElementById('energyLabel').textContent = energyLabel(Number(energyInput.value));
+  });
+
+  document.getElementById('submitBtn').addEventListener('click', function () {
+    var payload = {
+      type: 'bulle_du_soir',
+      date: new Date().toISOString().slice(0, 10),
+      energy: Number(energyInput.value),
+      mood: selectedMood,
+      moodOther: document.getElementById('moodOther').value,
+      joie: document.getElementById('joie').value,
+      victoire: document.getElementById('victoire').value,
+      pese: document.getElementById('pese').value,
+      notedemain: document.getElementById('notedemain').value,
+      gratitude: document.getElementById('gratitude').value,
+      coeur: document.getElementById('coeur').value
+    };
+    if (tg) {
+      tg.sendData(JSON.stringify(payload));
+    } else {
+      console.log('Hors Telegram — payload:', payload);
+    }
+    document.getElementById('confirm').classList.remove('hidden');
+    document.getElementById('submitBtn').classList.add('hidden');
+  });
+</script>
+</body>
+</html>
