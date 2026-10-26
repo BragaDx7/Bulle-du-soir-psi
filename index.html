@@ -22,7 +22,7 @@
   .card { background: #ffffff; border: 1px solid #E9E4D8; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px; }
   .section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #6B6355; display: flex; align-items: center; gap: 6px; }
   .section-title .icon { font-size: 16px; }
-  .row-between { display: flex; align-items: center; justify-content: space-between; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label { font-size: 14px; color: #141413; }
   .hint { font-size: 12px; color: #A8A39A; }
@@ -81,8 +81,20 @@
 
     <div class="card">
       <span class="section-title"><span class="icon">📔</span>Bilan de la journée</span>
+
       <div class="field">
-        <label>Un moment de joie aujourd'hui</label>
+        <div class="row-between">
+          <span>Ma journée en un mot</span>
+          <span style="color:#8A9A7E; text-align:right"><span id="jourEmoji">🙂</span> <b id="jourLabel">Bonne journée, j'ai aimé</b></span>
+        </div>
+        <input type="range" class="energy-range" id="jourNote" min="1" max="5" step="1" value="4">
+        <div class="anchors">
+          <span>Mauvaise</span><span>Pas top</span><span>Neutre</span><span>Bonne</span><span>Excellente</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Un moment de joie ou de satisfaction aujourd'hui</label>
         <textarea id="joie" rows="2" placeholder="Un sourire, une pause savourée..."></textarea>
       </div>
       <div class="field">
@@ -123,22 +135,47 @@
   var tg = window.Telegram ? window.Telegram.WebApp : null;
   if (tg) { tg.ready(); tg.expand(); }
 
-  document.getElementById('today').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  // ---- Date de la bulle ----
+  // Avant midi, on remplit encore la bulle de la veille. A partir de midi, c'est la bulle du jour.
+  var HEURE_BASCULE = 12;
+  function bulleDateObj() {
+    var d = new Date();
+    if (d.getHours() < HEURE_BASCULE) { d.setDate(d.getDate() - 1); }
+    return d;
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function bulleDateIso() {
+    var d = bulleDateObj();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function bulleDateLabel() {
+    // ex : "jeudi 15 octobre"
+    return bulleDateObj().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  var estVeille = new Date().getHours() < HEURE_BASCULE;
+  document.getElementById('today').textContent = bulleDateLabel() + (estVeille ? ' (bulle d\'hier)' : '');
 
+  // ---- Humeurs ----
   var moods = [
     { id: 'serein', label: 'Serein(e)', icon: '😌' },
     { id: 'joyeux', label: 'Joyeux/se', icon: '😄' },
     { id: 'heureux', label: 'Heureux(se)', icon: '🙂' },
     { id: 'fier', label: 'Fier(e)', icon: '😊' },
+    { id: 'normal', label: 'Normal(e)', icon: '😐' },
+    { id: 'fatigue', label: 'Fatigué(e)', icon: '😴' },
+    { id: 'epuise', label: 'Épuisé(e)', icon: '🥱' },
+    { id: 'repos', label: 'Besoin de repos', icon: '🛌' },
+    { id: 'stresse', label: 'Stressé(e)', icon: '😰' },
+    { id: 'pression', label: 'Sous pression', icon: '😣' },
     { id: 'triste', label: 'Triste', icon: '😢' },
     { id: 'colere', label: 'En colère', icon: '😠' },
     { id: 'perdu', label: 'Perdu(e)', icon: '😕' },
-    { id: 'pression', label: 'Sous pression', icon: '😣' },
     { id: 'peur', label: 'Peur', icon: '😨' },
     { id: 'douceur', label: 'Besoin de douceur', icon: '🥺' },
     { id: 'autre', label: 'Autre', icon: '✏️' }
   ];
   var selectedMood = null;
+  var selectedMoodLabel = '';
   var grid = document.getElementById('moodGrid');
   moods.forEach(function (m) {
     var btn = document.createElement('button');
@@ -148,6 +185,7 @@
     btn.innerHTML = '<span class="em">' + m.icon + '</span>' + m.label;
     btn.addEventListener('click', function () {
       selectedMood = m.id;
+      selectedMoodLabel = m.label;
       Array.prototype.forEach.call(grid.children, function (c) { c.classList.remove('selected'); });
       btn.classList.add('selected');
       document.getElementById('moodOther').classList.toggle('hidden', m.id !== 'autre');
@@ -155,6 +193,7 @@
     grid.appendChild(btn);
   });
 
+  // ---- Energie ----
   function energyLabel(v) {
     if (v <= 2) return 'Épuisé(e)';
     if (v <= 4) return 'Fatigué(e)';
@@ -169,19 +208,41 @@
     document.getElementById('energyLabel').textContent = energyLabel(Number(energyInput.value));
   });
 
+  // ---- Note de la journee ----
+  var jours = {
+    1: { icon: '😞', label: 'Mauvaise journée' },
+    2: { icon: '😕', label: 'Pas trop bonne journée' },
+    3: { icon: '😐', label: 'Journée neutre' },
+    4: { icon: '🙂', label: 'Bonne journée, j\'ai aimé' },
+    5: { icon: '🤩', label: 'Journée excellente' }
+  };
+  var jourInput = document.getElementById('jourNote');
+  jourInput.addEventListener('input', function () {
+    var j = jours[Number(jourInput.value)];
+    document.getElementById('jourEmoji').textContent = j.icon;
+    document.getElementById('jourLabel').textContent = j.label;
+  });
+
+  function val(id) { return document.getElementById(id).value.trim(); }
+
   document.getElementById('submitBtn').addEventListener('click', function () {
+    var note = Number(jourInput.value);
     var payload = {
       type: 'bulle_du_soir',
-      date: new Date().toISOString().slice(0, 10),
+      date: bulleDateIso(),
+      dateLabel: bulleDateLabel(),
       energy: Number(energyInput.value),
       mood: selectedMood,
-      moodOther: document.getElementById('moodOther').value,
-      joie: document.getElementById('joie').value,
-      victoire: document.getElementById('victoire').value,
-      pese: document.getElementById('pese').value,
-      notedemain: document.getElementById('notedemain').value,
-      gratitude: document.getElementById('gratitude').value,
-      coeur: document.getElementById('coeur').value
+      moodLabel: selectedMoodLabel,
+      moodOther: val('moodOther'),
+      jourNote: note,
+      jourLabel: jours[note].label + ' (' + note + '/5)',
+      joie: val('joie'),
+      victoire: val('victoire'),
+      pese: val('pese'),
+      notedemain: val('notedemain'),
+      gratitude: val('gratitude'),
+      coeur: val('coeur')
     };
     if (tg) {
       tg.sendData(JSON.stringify(payload));
